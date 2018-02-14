@@ -13,8 +13,8 @@
       node {
 
         stage ('Deploy Restoration Server') {
-          build job: 'deploy-restoration-server', parameters: [
-            string(name: 'TAG', value: "$BUILD_TAG")
+          build job: 'auto-pipeline-deploy-restoration-server', parameters: [
+            string(name: 'instanceName', value: "$BUILD_TAG")
           ]
         }
 

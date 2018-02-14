@@ -1,0 +1,23 @@
+- job:
+    name: auto-pipeline-deploy-restoration-server
+    project-type: pipeline
+    description: "This pipeline starts an instance in AWS with the correct DBMS installed"
+    parameters:
+      - string:
+          name: instanceName
+          description: "A uniquely identifiable name for the instance "
+    dsl: |
+      node {
+        stage('Retrieve Restoration Server IP') {        
+
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
+            
+            println "Creating server"
+            sh ''' AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 --region eu-west-1 run-instances --image-id ami-10334569 --count 1 --instance-type t2.micro --key-name restoration-server --security-groups httpssh --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value='$instanceName'}]' '''
+
+            println "Server created... waiting to boot"
+
+            sh ''' AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 wait --region eu-west-1 instance-running --filters "Name=tag-value,Values="$instanceName '''
+          }
+        }
+      }
