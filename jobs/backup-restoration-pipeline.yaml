@@ -4,7 +4,7 @@
     description: "This pipeline performs a test restoration of a backup"
     parameters:
       - string:
-          name: backupIpAddress
+          name: backupIp
           description: "The IP address of the backup server"
       - string:
           name: backupFile
@@ -26,21 +26,21 @@
             restorationServerIp = sh (
               script: '''AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 --region eu-west-1 describe-instances --filters "Name=tag-value,Values="$BUILD_TAG | grep PublicIpAddress | awk -F'"' '{print $4}' ''',
               returnStdout:true
-            )
+            ).trim()
           }
         }
 
         println "Restoration Server IP: ${restorationServerIp}"
 
-        /*
         stage('Decrypt Backup') {
           build job: 'auto-pipeline-backup-decrypt', parameters: [
-            string(name: 'backupIpAddress', value: "${backupIpAddress}"),
-            string(name: 'backup', value: "${backup}"),
+            string(name: 'backupIp', value: "${backupIp}"),
+            string(name: 'backupFile', value: "${backupFile}"),
             string(name: 'restorationServerIp', value: "${restorationServerIp}")
           ]
         }
 
+        /*
         stage('Restore Backup') {
           build job: 'auto-pipeline-backup-restore', parameters: [
             string(name: 'restorationServerIp', value: "${restorationServerIp}")
