@@ -8,7 +8,7 @@
           description: "A uniquely identifiable name for the instance "
     dsl: |
       node {
-        stage('Retrieve Restoration Server IP') {        
+        stage('Deploy Restoration') {        
 
           withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
             

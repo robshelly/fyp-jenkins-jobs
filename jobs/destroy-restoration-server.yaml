@@ -1,0 +1,26 @@
+- job:
+    name: auto-pipeline-destroy-restoration-server
+    project-type: pipeline
+    description: "This pipeline destroy a reswtoration server after a test restoration"
+    parameters:
+      - string:
+          name: instanceName
+          description: "A uniquely identifiable name for the instance "
+    dsl: |
+      node {
+        stage('Destroy Server') {        
+
+          def instanceId
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
+
+            instanceId = sh (
+              script: '''AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 --region eu-west-1 describe-instances --filters "Name=tag-value,Values="$instanceName | grep InstanceId | awk -F'"' '{print $4}' ''',
+              returnStdout:true
+            ).trim()
+
+            println "Instance ID: ${instanceId}"
+            
+            sh "AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 terminate-instances --region eu-west-1 --instance-ids $instanceId "
+          }
+        }
+      }

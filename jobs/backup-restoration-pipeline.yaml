@@ -46,12 +46,10 @@
           ]
         }
 
-        /*
-        stage(Destroy Restoration Server) {
+        stage('Destroy Restoration Server') {
           build job: 'auto-pipeline-destroy-restoration-server', parameters: [
-            string(name: 'restorationServerIp', value: "${restorationServerIp}")
+            string(name: 'instanceName', value: "${BUILD_TAG}")
           ]
         }
-        */
 
       }
