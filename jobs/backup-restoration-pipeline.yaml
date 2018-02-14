@@ -40,13 +40,13 @@
           ]
         }
 
-        /*
         stage('Restore Backup') {
           build job: 'auto-pipeline-backup-restore', parameters: [
             string(name: 'restorationServerIp', value: "${restorationServerIp}")
           ]
         }
 
+        /*
         stage(Destroy Restoration Server) {
           build job: 'auto-pipeline-destroy-restoration-server', parameters: [
             string(name: 'restorationServerIp', value: "${restorationServerIp}")

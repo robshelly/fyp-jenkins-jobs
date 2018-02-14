@@ -1,0 +1,24 @@
+- job:
+    name: auto-pipeline-backup-restore
+    project-type: pipeline
+    description: "This job imports a backup into a DBMS and performs a read of the DB"
+    parameters:
+      - string:
+          name: restorationServerIp
+          description: "The IP address of the restoration server)"
+    dsl: |
+      node {
+        stage('Decrypt Backup') {
+
+          withCredentials([
+            sshUserPrivateKey(credentialsId: 'ssh-restoration-server', keyFileVariable: 'restorationServerKey')]) {
+
+              print "Importing backup into MongoDB"
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongoimport --db test --collection restaurants --drop --file backup.json" '''
+
+              print "Verify Restore"
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongo --norc --eval 'db.restaurants.find().forEach(printjson)'" '''
+
+            }
+        }
+      }
