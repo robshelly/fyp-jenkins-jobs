@@ -10,6 +10,9 @@
           name: backupFile
           description: "The backup file (including path)"
       - string:
+          name: decryptKey
+          description: "The GPG key to decryt the backup"
+      - string:
           name: restorationServerIp
           description: "The IP address of the restoration server)"
     dsl: |
@@ -19,13 +22,31 @@
           withCredentials([
             sshUserPrivateKey(credentialsId: 'ssh-backup-server', keyFileVariable: 'backupServerKey'),
             sshUserPrivateKey(credentialsId: 'ssh-restoration-server', keyFileVariable: 'restorationServerKey'),
-            string(credentialsId: 'gpg-private-key1', variable: 'gpgKey'),
-            usernamePassword(credentialsId: 'gpg-private-key-creds', passwordVariable: 'gpgPasswd', usernameVariable: 'gpgUname')]) {
+            string(credentialsId: "gpg-key-${decryptKey}", variable: 'gpgKey'),
+            usernamePassword(credentialsId: "gpg-creds-${decryptKey}", passwordVariable: 'gpgPasswd', usernameVariable: 'gpgUname')]) {
+                
 
-              sh ''' echo $restorationServerIp '''
+              // Initial SSH connection often fails first time try three times with a sleep in between
+              // Needs try catch to stop any fail causing pipeline to fail
+              def sshSuccessfull = false
+              def attempts = 2
+              while (attempts > 0 && !sshSuccessfull) {
 
-              println "Importing private key"
-              sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey > private-key" '''
+                println "Importing private key"
+                attempts--
+                try {
+                        sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey > private-key" '''
+                        sshSuccessfull = true
+
+                } catch(Exception e ) {
+                    println("SSH attempt failed... trying again 30 seconds")
+                    sleep 30
+                }
+
+              }
+              
+              // If not successfull after three tries fail the job       
+              if (!sshSuccessfull) sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey > private-key" '''
 
               sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "gpg --allow-secret-key-import --import private-key" '''
 

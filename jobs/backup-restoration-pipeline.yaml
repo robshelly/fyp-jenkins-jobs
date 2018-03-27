@@ -9,12 +9,19 @@
       - string:
           name: backupFile
           description: "The backup file (including path)"
+      - string:
+          name: dataType
+          description: "The data type of the backup e.g. json or mysql"
+      - string:
+          name: decryptKey
+          description: "The GPG key to decryt the backup"
     dsl: |
       node {
 
         stage ('Deploy Restoration Server') {
           build job: 'auto-pipeline-deploy-restoration-server', parameters: [
-            string(name: 'instanceName', value: "$BUILD_TAG")
+            string(name: 'instanceName', value: "$BUILD_TAG"),
+            string(name: 'dataType', value: "${dataType}"),
           ]
         }
 
@@ -36,14 +43,23 @@
           build job: 'auto-pipeline-backup-decrypt', parameters: [
             string(name: 'backupIp', value: "${backupIp}"),
             string(name: 'backupFile', value: "${backupFile}"),
+            string(name: 'decryptKey', value: "${decryptKey}"),
             string(name: 'restorationServerIp', value: "${restorationServerIp}")
           ]
         }
 
         stage('Restore Backup') {
-          build job: 'auto-pipeline-backup-restore', parameters: [
-            string(name: 'restorationServerIp', value: "${restorationServerIp}")
-          ]
+        // Run the correct restore and read according to the data type!
+          switch(dataType) {
+            case 'json':
+              build job: 'auto-pipeline-backup-restore-json', parameters: [
+                string(name: 'restorationServerIp', value: "${restorationServerIp}")
+              ]
+              break;
+            case 'mysql':
+              println("MySQL not implemented yet... here for demo purposes only")
+              break;
+          }
         }
 
         stage('Destroy Restoration Server') {

@@ -1,7 +1,7 @@
 - job:
-    name: auto-pipeline-backup-restore
+    name: auto-pipeline-backup-restore-json
     project-type: pipeline
-    description: "This job imports a backup into a DBMS and performs a read of the DB"
+    description: "This job imports a backup in MongoDB and performs a read of the DB"
     parameters:
       - string:
           name: restorationServerIp
