@@ -1,0 +1,80 @@
+- job:
+    name: auto-pipeline-backup-decrypt-latest
+    project-type: pipeline
+    description: "This job moves a backup file onto a restoration server at decrypts it there."
+    parameters:
+      - string:
+          name: backupIp
+          description: "The IP address of the backup server"
+      - string:
+          name: pathToFile
+          description: "The path to the backup files"
+      - string:
+          name: decryptKey
+          description: "The GPG key to decryt the backup"
+      - string:
+          name: restorationServerIp
+          description: "The IP address of the restoration server)"
+    dsl: |
+      node {
+        stage('Decrypt Backup') {
+
+          withCredentials([
+            sshUserPrivateKey(credentialsId: 'api-ssh-backup-server', keyFileVariable: 'backupServerKey'),
+            sshUserPrivateKey(credentialsId: 'api-ssh-restoration-server', keyFileVariable: 'restorationServerKey'),
+            string(credentialsId: "api-gpg-secret-key-${decryptKey}", variable: 'gpgKey'),
+            usernamePassword(credentialsId: "api-gpg-uname-pwd-${decryptKey}", passwordVariable: 'gpgPasswd', usernameVariable: 'gpgUname')]) {
+                
+
+              // Initial SSH connection often fails first time try three times with a sleep in between
+              // Needs try catch to stop any fail causing pipeline to fail
+              def sshSuccessfull = false
+              def attempts = 2
+              while (attempts > 0 && !sshSuccessfull) {
+
+                println "Importing private key"
+                attempts--
+                try {
+                        sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey | gpg --import" '''
+                        sshSuccessfull = true
+
+                } catch(Exception e ) {
+                    println("SSH attempt failed... trying again 30 seconds")
+                    sleep 30
+                }
+
+              }
+              
+              // If not successfull after three tries fail the job
+              if (!sshSuccessfull) sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey | gpg --import" '''
+
+              println "Creating 'decrypt' script"
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "echo -e '#!/bin/bash\necho \\$1 | gpg --batch --passphrase-fd 0 -r \\$2 --output \\$3 --decrypt \\$4' > decrypt.sh" '''
+
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "chmod +x decrypt.sh" '''
+
+              println "Retrieving latest backup file"
+              backupFile = sh (
+                script: '''ssh -o StrictHostKeyChecking=no -i $backupServerKey ec2-user@$backupIp "(cd $pathToFile && find . -type f -print0 | xargs -0 ls -tr | tail -n 1)" ''',
+                returnStdout:true
+              ).trim()
+              // Record the name and date modified of the file for results
+              backupFileDate = sh (
+                script: "ssh -o StrictHostKeyChecking=no -i $backupServerKey ec2-user@$backupIp '(cd $pathToFile && date -r ${backupFile})' ",
+                returnStdout:true
+              ).trim()
+            
+              println("Testing latest backup file: ${backupFile}, last modifired ${backupFileDate}")
+              env.BackupFile = "${backupFile}"
+              env.BackupFileDate = "${backupFileDate}"
+
+              pathToFile = pathToFile + '/'
+
+              println "Copying backup to test restoration server"
+              sh " ssh -o StrictHostKeyChecking=no -i $backupServerKey ec2-user@$backupIp 'scp -o StrictHostKeyChecking=no -i ~/.ssh/restoration-server.pem $pathToFile${backupFile} ec2-user@$restorationServerIp:backup.json.gpg' "
+
+              println "Decrypting backup file"
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "./decrypt.sh $gpgPasswd $gpgUname 'backup.json' 'backup.json.gpg'" '''
+          }
+        }
+      }

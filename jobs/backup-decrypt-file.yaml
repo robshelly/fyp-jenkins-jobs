@@ -1,7 +1,7 @@
 - job:
-    name: auto-pipeline-backup-decrypt
+    name: auto-pipeline-backup-decrypt-file
     project-type: pipeline
-    description: "This job moves a backup file onto a resotration server at decrypts it there."
+    description: "This job moves a backup file onto a restoration server at decrypts it there."
     parameters:
       - string:
           name: backupIp
@@ -20,10 +20,10 @@
         stage('Decrypt Backup') {
 
           withCredentials([
-            sshUserPrivateKey(credentialsId: 'ssh-backup-server', keyFileVariable: 'backupServerKey'),
-            sshUserPrivateKey(credentialsId: 'ssh-restoration-server', keyFileVariable: 'restorationServerKey'),
-            string(credentialsId: "gpg-key-${decryptKey}", variable: 'gpgKey'),
-            usernamePassword(credentialsId: "gpg-creds-${decryptKey}", passwordVariable: 'gpgPasswd', usernameVariable: 'gpgUname')]) {
+            sshUserPrivateKey(credentialsId: 'api-ssh-backup-server', keyFileVariable: 'backupServerKey'),
+            sshUserPrivateKey(credentialsId: 'api-ssh-restoration-server', keyFileVariable: 'restorationServerKey'),
+            string(credentialsId: "api-gpg-secret-key-${decryptKey}", variable: 'gpgKey'),
+            usernamePassword(credentialsId: "api-gpg-uname-pwd-${decryptKey}", passwordVariable: 'gpgPasswd', usernameVariable: 'gpgUname')]) {
                 
 
               // Initial SSH connection often fails first time try three times with a sleep in between
@@ -35,7 +35,7 @@
                 println "Importing private key"
                 attempts--
                 try {
-                        sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey > private-key" '''
+                        sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey | gpg --import" '''
                         sshSuccessfull = true
 
                 } catch(Exception e ) {
@@ -45,10 +45,8 @@
 
               }
               
-              // If not successfull after three tries fail the job       
-              if (!sshSuccessfull) sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey > private-key" '''
-
-              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "gpg --allow-secret-key-import --import private-key" '''
+              // If not successfull after three tries fail the job
+              if (!sshSuccessfull) sh ''' ssh -o StrictHostKeyChecking=no -i $restorationServerKey ec2-user@$restorationServerIp "echo -e $gpgKey | gpg --import" '''
 
               println "Creating 'decrypt' script"
               sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "echo -e '#!/bin/bash\necho \\$1 | gpg --batch --passphrase-fd 0 -r \\$2 --output \\$3 --decrypt \\$4' > decrypt.sh" '''
@@ -60,10 +58,6 @@
 
               println "Decrypting backup file"
               sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "./decrypt.sh $gpgPasswd $gpgUname 'backup.json' 'backup.json.gpg'" '''
-
-
-              // Remove private-key-file
-              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "rm private-key" '''
           }
         }
       }

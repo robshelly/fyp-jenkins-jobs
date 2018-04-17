@@ -26,7 +26,7 @@
               break;
           }
 
-          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'api-aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
 
             println "AMI: ${serverAmi}"
 

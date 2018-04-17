@@ -11,13 +11,13 @@
         stage('Decrypt Backup') {
 
           withCredentials([
-            sshUserPrivateKey(credentialsId: 'ssh-restoration-server', keyFileVariable: 'restorationServerKey')]) {
+            sshUserPrivateKey(credentialsId: 'api-ssh-restoration-server', keyFileVariable: 'restorationServerKey')]) {
 
               print "Importing backup into MongoDB"
               sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongoimport --db test --collection restaurants --drop --file backup.json" '''
 
               print "Verify Restore"
-              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongo --norc --eval 'db.restaurants.find().forEach(printjson)'" '''
+              sh '''export LC_ALL=C && ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongo --norc --eval 'db.getCollectionNames().forEach( function(col) {db[col].find().forEach(printjson) } )' > /dev/null " '''
 
             }
         }

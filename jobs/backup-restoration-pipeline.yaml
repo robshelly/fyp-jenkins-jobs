@@ -28,7 +28,7 @@
         def restorationServerIp  
         stage('Retrieve Restoration Server IP') {        
 
-          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'KEY_ID', credentialsId: 'api-aws-jenkins', secretKeyVariable: 'SECRET_KEY']]) {
 
             restorationServerIp = sh (
               script: '''AWS_ACCESS_KEY_ID=$KEY_ID AWS_SECRET_ACCESS_KEY=$SECRET_KEY aws ec2 --region eu-west-1 describe-instances --filters "Name=tag-value,Values="$BUILD_TAG | grep PublicIpAddress | awk -F'"' '{print $4}' ''',
@@ -40,7 +40,7 @@
         println "Restoration Server IP: ${restorationServerIp}"
 
         stage('Decrypt Backup') {
-          build job: 'auto-pipeline-backup-decrypt', parameters: [
+          build job: 'auto-pipeline-backup-decrypt-file', parameters: [
             string(name: 'backupIp', value: "${backupIp}"),
             string(name: 'backupFile', value: "${backupFile}"),
             string(name: 'decryptKey', value: "${decryptKey}"),
