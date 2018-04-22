@@ -10,12 +10,22 @@
       node {
         stage('Decrypt Backup') {
 
+          def numCollections
+
           withCredentials([
             sshUserPrivateKey(credentialsId: 'api-ssh-restoration-server', keyFileVariable: 'restorationServerKey')]) {
 
               print "Importing backup into MongoDB"
-              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongoimport --db test --collection restaurants --drop --file backup.json" '''
+              sh ''' ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongoimport --db test --collection test --drop --file backup.json" '''
 
+              numCollections = sh (
+                script: '''ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongo --norc --eval 'db.test.count()' " | tail -n 1 ''',
+                returnStdout:true
+              ).trim()
+
+              numCollections = numCollections.toInteger()
+              println "Collections Imported: ${numCollections}"
+              if (numCollections == 0) error("Restoration failed: no collections present in backup file")
               print "Verify Restore"
               sh '''export LC_ALL=C && ssh -i $restorationServerKey ec2-user@$restorationServerIp "/usr/bin/mongo --norc --eval 'db.getCollectionNames().forEach( function(col) {db[col].find().forEach(printjson) } )' > /dev/null " '''
 
